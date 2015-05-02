@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <iostream>
-
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
 #include "gait.h"
-
-#define ESC_KEY (27)
-#define dist(x, y)  ((x) * (x) + (y) * (y))
 
 using namespace cv;
 using namespace std;
@@ -14,14 +6,16 @@ using namespace std;
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
 
-vector<Rect> objects;
-int lH, lS, lV, hH, hS, hV;
+#ifdef HSV_CAL
+int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
+#endif
 
 void callback(int event, int x, int y, int flags, void *userdata)
 {
+    vector<Rect> *objects = reinterpret_cast< vector<Rect> * >(userdata);
     if (event == EVENT_LBUTTONDOWN)
     {
-        for (vector<Rect>::iterator it = objects.begin(); it != objects.end(); ++it)
+        for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
         {
             printf("Point: (%d, %d) \n", it->x, it->y);
             if (it->contains(Point(x, y)))
@@ -48,15 +42,17 @@ void callback(int event, int x, int y, int flags, void *userdata)
 int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
-    setMouseCallback(windowName, callback, NULL);
     displayOverlay(windowName, "Please select the Left Hip Marker", 0);
 
+#ifdef HSV_CAL
     createTrackbar("H Low", windowName, &lH, 179);
     createTrackbar("H High", windowName, &hH, 179);
     createTrackbar("S Low", windowName, &lS, 255);
     createTrackbar("S High", windowName, &hS, 255);
     createTrackbar("V Low", windowName, &lV, 255);
     createTrackbar("V High", windowName, &hV, 255);
+
+#endif
 
     // Open the input
     VideoCapture input(0);
@@ -87,7 +83,7 @@ int main(int argc, char **argv)
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
     vector<Point2f> mc;
-    Mat s = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
+    vector<Rect> objects;
 
     while (1)
     {
@@ -98,27 +94,16 @@ int main(int argc, char **argv)
 
         // Convert to hsv and threshold with the given values
         cvtColor(frame, hsv, CV_BGR2HSV);
-//        inRange(hsv, Scalar(lH, lS, lV), Scalar(hH, hS, hV), range);
+
+#ifdef HSV_CAL
+        inRange(hsv, Scalar(lH, lS, lV), Scalar(hH, hS, hV), range);
+#else
         inRange(hsv, Scalar(LOW_H, LOW_S, LOW_V), Scalar(HIGH_H, HIGH_S, HIGH_V), range);
+#endif
+
         medianBlur(range, range, 9);
-        Canny(range, canny, 100, 200, 3, true);
+        Canny(range, canny, 50, 100, 3, true);
         canny.copyTo(cont);
-
-        /*
-        for(int i = 0; i < 10; i++)
-        {
-            erode(range, range, s);
-            dilate(range, range, s);
-
-            dilate(range, range, s);
-            erode(range, range, s);
-        }
-         */
-
-        //morphological closing (fill small holes in the foreground)
-
-
-//        medianBlur(range, cont, 9);
 
         contours.clear();
         hierarchy.clear();
@@ -137,54 +122,16 @@ int main(int argc, char **argv)
         {
             m = moments(contours[i], false);
             mc[i] = Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00));
-            obj = Rect((int) mc[i].x, (int) mc[i].y, OBJECT_SIZE, OBJECT_SIZE);
+            obj = Rect((int) mc[i].x - OBJECT_SIZE / 2, (int) mc[i].y - OBJECT_SIZE / 2, OBJECT_SIZE, OBJECT_SIZE);
             rectangle(output, obj, Scalar(0, 0, 255), 2);
+            circle(output, mc[i], 2, Scalar(255, 255, 255));
 
             objects.push_back(obj);
         }
 
-        /*
-//        for (int i = 0; i < ct; i++)
-//        {
+        setMouseCallback(windowName, callback, &objects);
 
-//            rectangle(output, Point2f(mc[i].x - 10, mc[i].y - 10), Point2f(mc[i].x + 10, mc[i].y + 10),
-//                      Scalar(0, 0, 255), 2);
-
-////            circle(output, mc[i], 3, Scalar(255, 255, 255), -1);
-//            md = 1000000;
-//            mx = 0;
-//            my = 0;
-//
-//            for (int j = 0; j < ct; j++)
-//            {
-//                // If we're not looking at the same point, as the distance
-//                // would be 0
-//                if (j != i)
-//                {
-//                    if (mc[j].x == cx && mc[j].y == cy) continue;
-//
-//                    dx = mc[j].x - mc[i].x;
-//                    dy = mc[j].y - mc[i].y;
-//
-//                    if (dist(dx, dy) < md)
-//                    {
-//                        md = dist(dx, dy);
-//                        mx = mc[j].x;
-//                        my = mc[j].y;
-//                    }
-//                }
-//            }
-
-//            printf("Drawing from (%.0f, %.0f) to (%.0f, %.0f) \n", mc[i].x, mc[i].y, mx, my);
-
-//            if (mx > 0 && my > 0 && mc[i].x > 0 && mc[i].y > 0)
-//                line(output, mc[i], Point2f(mx, my), Scalar(255, 255, 255), 2);
-//        }
-
-//        printf("Found %lu objects. \n", ct);
-*/
-
-        imshow(windowName, canny);
+        imshow(windowName, output);
 
         //vout.write(output);
 
