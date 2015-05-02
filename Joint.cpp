@@ -17,6 +17,8 @@ class Joint
 
 
     public:
+        Joint(){};
+
         Joint(String inName, Point2f initialLocation)
         {
             name = inName;

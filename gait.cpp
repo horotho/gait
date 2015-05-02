@@ -1,4 +1,5 @@
 #include "gait.h"
+#include "Joint.cpp"
 
 #define ESC_KEY (27)
 #define dist(x, y)  ((x) * (x) + (y) * (y))
@@ -10,8 +11,10 @@ const char *windowName = "Gait Test";
 int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 #endif
 
-static const String joints[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
+static const String jointNames[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber = 0;
+
+Vector<Joint> joints;
 
 void callback(int event, int x, int y, int flags, void *userdata)
 {
@@ -24,11 +27,16 @@ void callback(int event, int x, int y, int flags, void *userdata)
             if (it->contains(Point(x, y))) 
             {
                 printf("Clicked inside an object. \n");
-                jointNumber++;
 
-                if (jointNumber <= joints->size() + 1)
+
+                if (jointNumber <= jointNames->size())
                 {
-                    displayOverlay(windowName, "Please select the " + joints[jointNumber] + " Marker", 0);
+                    Point2f center = Point2f(it->x + it->width/2, it->y + it->height/2);
+                    Joint newJoint = Joint(jointNames[jointNumber], center);
+                    joints.push_back(newJoint);
+
+                    jointNumber++;
+                    displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
                     break;
                 }
                 else
@@ -58,7 +66,7 @@ int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
     setMouseCallback(windowName, callback, NULL);
-    displayOverlay(windowName, "Please select the " + joints[jointNumber] + " Marker", 0);
+    displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
 
 #ifdef HSV_CAL
     createTrackbar("H Low", windowName, &lH, 179);
