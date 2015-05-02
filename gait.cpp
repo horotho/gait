@@ -32,8 +32,7 @@ void callback(int event, int x, int y, int flags, void *userdata)
     }
     else if (event == EVENT_MOUSEMOVE)
     {
-        cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
-
+        //cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
     }
 }
 
@@ -41,6 +40,7 @@ int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
     setMouseCallback(windowName, callback, NULL);
+    displayOverlay(windowName, "Please select the Left Hip Marker", 0);
 
 //    createTrackbar("H Low", windowName, &lH, 360);
 //    createTrackbar("H High", windowName, &hH, 360);
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 //    createTrackbar("V High", windowName, &hV, 255);
 
     // Load input video
-    VideoCapture input(1);
+    VideoCapture input(0);
     if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
