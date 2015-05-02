@@ -14,25 +14,34 @@ using namespace std;
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
 
-//int lH, lS, lV, hH, hS, hV;
+vector<Rect> objects;
+int lH, lS, lV, hH, hS, hV;
 
 void callback(int event, int x, int y, int flags, void *userdata)
 {
     if (event == EVENT_LBUTTONDOWN)
     {
-        printf("Left button of the mouse clicked at position (%d, %d) \n", x, y);
+        for (vector<Rect>::iterator it = objects.begin(); it != objects.end(); ++it)
+        {
+            printf("Point: (%d, %d) \n", it->x, it->y);
+            if (it->contains(Point(x, y)))
+            {
+                printf("Clicked inside an object. \n");
+            }
+        }
     }
     else if (event == EVENT_RBUTTONDOWN)
     {
-        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+//        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
     }
     else if (event == EVENT_MBUTTONDOWN)
     {
-        cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+//        cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
     }
     else if (event == EVENT_MOUSEMOVE)
     {
-        //cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
+//        cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
+
     }
 }
 
@@ -42,14 +51,14 @@ int main(int argc, char **argv)
     setMouseCallback(windowName, callback, NULL);
     displayOverlay(windowName, "Please select the Left Hip Marker", 0);
 
-//    createTrackbar("H Low", windowName, &lH, 360);
-//    createTrackbar("H High", windowName, &hH, 360);
-//    createTrackbar("S Low", windowName, &lS, 255);
-//    createTrackbar("S High", windowName, &hS, 255);
-//    createTrackbar("V Low", windowName, &lV, 255);
-//    createTrackbar("V High", windowName, &hV, 255);
+    createTrackbar("H Low", windowName, &lH, 179);
+    createTrackbar("H High", windowName, &hH, 179);
+    createTrackbar("S Low", windowName, &lS, 255);
+    createTrackbar("S High", windowName, &hS, 255);
+    createTrackbar("V Low", windowName, &lV, 255);
+    createTrackbar("V High", windowName, &hV, 255);
 
-    // Load input video
+    // Open the input
     VideoCapture input(0);
     if (!input.isOpened())
     {
@@ -74,7 +83,11 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    Mat frame, range, cont, hsv, output;
+    Mat frame, range, cont, hsv, output, canny;
+    vector<vector<Point> > contours;
+    vector<Vec4i> hierarchy;
+    vector<Point2f> mc;
+    Mat s = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
 
     while (1)
     {
@@ -87,74 +100,55 @@ int main(int argc, char **argv)
         cvtColor(frame, hsv, CV_BGR2HSV);
 //        inRange(hsv, Scalar(lH, lS, lV), Scalar(hH, hS, hV), range);
         inRange(hsv, Scalar(LOW_H, LOW_S, LOW_V), Scalar(HIGH_H, HIGH_S, HIGH_V), range);
+        medianBlur(range, range, 9);
+        Canny(range, canny, 100, 200, 3, true);
+        canny.copyTo(cont);
 
+        /*
+        for(int i = 0; i < 10; i++)
+        {
+            erode(range, range, s);
+            dilate(range, range, s);
 
-
-        Mat s = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
-
-        //morphological opening (remove small objects from the foreground)
-        erode(range, range, s);
-        dilate(range, range, s);
+            dilate(range, range, s);
+            erode(range, range, s);
+        }
+         */
 
         //morphological closing (fill small holes in the foreground)
-        dilate(range, range, s);
-        erode(range, range, s);
 
-        medianBlur(range, cont, 9);
 
-        vector<vector<Point> > contours;
-        vector<Vec4i> hierarchy;
+//        medianBlur(range, cont, 9);
+
+        contours.clear();
+        hierarchy.clear();
+        mc.clear();
+        objects.clear();
 
         findContours(cont, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_TC89_L1);
         unsigned long ct = contours.size();
 
-        vector<Moments> mu(ct);
-        vector<Point2f> mc(ct);
+        mc.reserve(ct);
+        objects.reserve(ct);
 
-        int tx = 0, ty = 0;
+        Moments m;
+        Rect obj;
         for (int i = 0; i < ct; i++)
         {
-            mu[i] = moments(contours[i], false);
-            mc[i] = Point2f((float) (mu[i].m10 / mu[i].m00), (float) (mu[i].m01 / mu[i].m00));
+            m = moments(contours[i], false);
+            mc[i] = Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00));
+            obj = Rect((int) mc[i].x, (int) mc[i].y, OBJECT_SIZE, OBJECT_SIZE);
+            rectangle(output, obj, Scalar(0, 0, 255), 2);
 
-            tx += mc[i].x;
-            ty += mc[i].y;
+            objects.push_back(obj);
         }
 
-        if (ct != 0)
-        {
-            tx /= ct;
-            ty /= ct;
-        }
+        /*
+//        for (int i = 0; i < ct; i++)
+//        {
 
-        float md;
-        float dy;
-        float dx;
-        float cx = 0, cy = 0;
-        float mx, my;
-
-        md = 1000000;
-        for (int i = 0; i < ct; i++)
-        {
-            if (mc[i].y < ty)
-            {
-                dx = mc[i].x - tx;
-                dy = mc[i].y - ty;
-
-                if ((dx * dx + dy * dy) < md)
-                {
-                    md = (dx * dx + dy * dy);
-                    cx = mc[i].x;
-                    cy = mc[i].y;
-                }
-            }
-        }
-
-//        circle(output, Point2f(cx, cy), 6, Scalar(0, 0, 255), -1);
-
-        for (int i = 0; i < ct; i++)
-        {
-            rectangle(output, Point2f(mc[i].x - 10, mc[i].y - 10), Point2f(mc[i].x + 10, mc[i].y + 10), Scalar(0, 0, 255), 2);
+//            rectangle(output, Point2f(mc[i].x - 10, mc[i].y - 10), Point2f(mc[i].x + 10, mc[i].y + 10),
+//                      Scalar(0, 0, 255), 2);
 
 ////            circle(output, mc[i], 3, Scalar(255, 255, 255), -1);
 //            md = 1000000;
@@ -185,43 +179,12 @@ int main(int argc, char **argv)
 
 //            if (mx > 0 && my > 0 && mc[i].x > 0 && mc[i].y > 0)
 //                line(output, mc[i], Point2f(mx, my), Scalar(255, 255, 255), 2);
-        }
+//        }
 
 //        printf("Found %lu objects. \n", ct);
+*/
 
-
-        //int num = 0, mi = 0;
-        //mx = my = 0;
-        //while(num < 4 && mc.size() > 0)
-        //{
-        //md = 100000;
-        //mi = 0;
-        //for(int i = 0; i < mc.size(); i++)
-        //{
-        //if(mc[i].x == cx && mc[i].y == cy) continue;
-
-        //dx = cx - mc[i].x;
-        //dy = cy - mc[i].y;
-
-        //if(dist(dx, dy) < md)
-        //{
-        //md = dist(dx, dy);
-        //mx = mc[i].x;
-        //my = mc[i].y;
-        //mi = i;
-        //}
-        //}
-
-        //if(cx > 0 && cy > 0 && mx > 0 && my > 0)
-        //{
-        //line(output, Point2f(cx, cy), Point2f(mx, my), Scalar(255, 255, 255), 2);
-        //}
-
-        //mc.erase(mc.begin() + mi);
-        //num++;
-        //}
-
-        imshow(windowName, output);
+        imshow(windowName, canny);
 
         //vout.write(output);
 

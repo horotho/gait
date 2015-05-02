@@ -5,6 +5,7 @@
 #ifndef GAIT_GAIT_H
 #define GAIT_GAIT_H
 
+#define OBJECT_SIZE 30
 //#define SHITTY_CAMERA
 
 #ifdef SHITTY_CAMERA
