@@ -1,7 +1,7 @@
 #include "gait.h"
 
-using namespace cv;
-using namespace std;
+#define ESC_KEY (27)
+#define dist(x, y)  ((x) * (x) + (y) * (y))
 
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
@@ -9,6 +9,9 @@ const char *windowName = "Gait Test";
 #ifdef HSV_CAL
 int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 #endif
+
+static const String joints[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
+int jointNumber = 0;
 
 void callback(int event, int x, int y, int flags, void *userdata)
 {
@@ -18,9 +21,21 @@ void callback(int event, int x, int y, int flags, void *userdata)
         for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
         {
             printf("Point: (%d, %d) \n", it->x, it->y);
-            if (it->contains(Point(x, y)))
+            if (it->contains(Point(x, y))) 
             {
                 printf("Clicked inside an object. \n");
+                jointNumber++;
+
+                if (jointNumber <= joints->size() + 1)
+                {
+                    displayOverlay(windowName, "Please select the " + joints[jointNumber] + " Marker", 0);
+                    break;
+                }
+                else
+                {
+                    displayOverlay(windowName, "Joints Selected", 3000);
+                    break;
+                }
             }
         }
     }
@@ -42,7 +57,8 @@ void callback(int event, int x, int y, int flags, void *userdata)
 int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
-    displayOverlay(windowName, "Please select the Left Hip Marker", 0);
+    setMouseCallback(windowName, callback, NULL);
+    displayOverlay(windowName, "Please select the " + joints[jointNumber] + " Marker", 0);
 
 #ifdef HSV_CAL
     createTrackbar("H Low", windowName, &lH, 179);
