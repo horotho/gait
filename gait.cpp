@@ -3,6 +3,7 @@
 
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
+#include "gait.h"
 
 #define ESC_KEY (27)
 #define dist(x, y)  ((x) * (x) + (y) * (y))
@@ -13,12 +14,43 @@ using namespace std;
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
 
+//int lH, lS, lV, hH, hS, hV;
+
+void callback(int event, int x, int y, int flags, void *userdata)
+{
+    if (event == EVENT_LBUTTONDOWN)
+    {
+        printf("Left button of the mouse clicked at position (%d, %d) \n", x, y);
+    }
+    else if (event == EVENT_RBUTTONDOWN)
+    {
+        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+    }
+    else if (event == EVENT_MBUTTONDOWN)
+    {
+        cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
+    }
+    else if (event == EVENT_MOUSEMOVE)
+    {
+        cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
+
+    }
+}
+
 int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
+    setMouseCallback(windowName, callback, NULL);
+
+//    createTrackbar("H Low", windowName, &lH, 360);
+//    createTrackbar("H High", windowName, &hH, 360);
+//    createTrackbar("S Low", windowName, &lS, 255);
+//    createTrackbar("S High", windowName, &hS, 255);
+//    createTrackbar("V Low", windowName, &lV, 255);
+//    createTrackbar("V High", windowName, &hV, 255);
 
     // Load input video
-    VideoCapture input(0);
+    VideoCapture input(1);
     if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
@@ -53,7 +85,10 @@ int main(int argc, char **argv)
 
         // Convert to hsv and threshold with the given values
         cvtColor(frame, hsv, CV_BGR2HSV);
+//        inRange(hsv, Scalar(lH, lS, lV), Scalar(hH, hS, hV), range);
         inRange(hsv, Scalar(LOW_H, LOW_S, LOW_V), Scalar(HIGH_H, HIGH_S, HIGH_V), range);
+
+
 
         Mat s = getStructuringElement(MORPH_ELLIPSE, Size(5, 5));
 
@@ -115,39 +150,41 @@ int main(int argc, char **argv)
             }
         }
 
-        circle(output, Point2f(cx, cy), 6, Scalar(0, 0, 255), -1);
+//        circle(output, Point2f(cx, cy), 6, Scalar(0, 0, 255), -1);
 
         for (int i = 0; i < ct; i++)
         {
-            circle(output, mc[i], 3, Scalar(255, 255, 255), -1);
-            md = 1000000;
-            mx = 0;
-            my = 0;
+            rectangle(output, Point2f(mc[i].x - 10, mc[i].y - 10), Point2f(mc[i].x + 10, mc[i].y + 10), Scalar(0, 0, 255), 2);
 
-            for (int j = 0; j < ct; j++)
-            {
-                // If we're not looking at the same point, as the distance
-                // would be 0
-                if (j != i)
-                {
-                    if (mc[j].x == cx && mc[j].y == cy) continue;
+////            circle(output, mc[i], 3, Scalar(255, 255, 255), -1);
+//            md = 1000000;
+//            mx = 0;
+//            my = 0;
+//
+//            for (int j = 0; j < ct; j++)
+//            {
+//                // If we're not looking at the same point, as the distance
+//                // would be 0
+//                if (j != i)
+//                {
+//                    if (mc[j].x == cx && mc[j].y == cy) continue;
+//
+//                    dx = mc[j].x - mc[i].x;
+//                    dy = mc[j].y - mc[i].y;
+//
+//                    if (dist(dx, dy) < md)
+//                    {
+//                        md = dist(dx, dy);
+//                        mx = mc[j].x;
+//                        my = mc[j].y;
+//                    }
+//                }
+//            }
 
-                    dx = mc[j].x - mc[i].x;
-                    dy = mc[j].y - mc[i].y;
+//            printf("Drawing from (%.0f, %.0f) to (%.0f, %.0f) \n", mc[i].x, mc[i].y, mx, my);
 
-                    if (dist(dx, dy) < md)
-                    {
-                        md = dist(dx, dy);
-                        mx = mc[j].x;
-                        my = mc[j].y;
-                    }
-                }
-            }
-
-            printf("Drawing from (%.0f, %.0f) to (%.0f, %.0f) \n", mc[i].x, mc[i].y, mx, my);
-
-            if (mx > 0 && my > 0 && mc[i].x > 0 && mc[i].y > 0)
-                line(output, mc[i], Point2f(mx, my), Scalar(255, 255, 255), 2);
+//            if (mx > 0 && my > 0 && mc[i].x > 0 && mc[i].y > 0)
+//                line(output, mc[i], Point2f(mx, my), Scalar(255, 255, 255), 2);
         }
 
 //        printf("Found %lu objects. \n", ct);
