@@ -4,66 +4,67 @@
 
 #include"gait.h"
 
-const int DISTANCE_THESHOLD = 50;
+const int DISTANCE_THESHOLD = 500;
 
 inline int dist(Point2f, Point2f);
 
 class Joint
 {
-    private:
-        String name;
-        Joint* connection;
-        Point2f center;
+private:
+    String name;
+    Joint *connection;
+    Point2f center;
 
 
-    public:
-        Joint(){};
+public:
+    Joint()
+    { };
 
-        Joint(String inName, Point2f initialLocation)
+    Joint(String inName, Point2f initialLocation)
+    {
+        name = inName;
+        connection = NULL;
+        center = initialLocation;
+    }
+
+    void updateLocation(vector<Point2f> *joints)
+    {
+
+        int minDistance = 999999;
+        int index = -1;
+
+        for (int i = 0; i < joints->size(); i++)
         {
-            name = inName;
-            connection = NULL;
-            center = initialLocation;
-        }
+            Point2f point = (*joints)[i];
+            int distance = dist(point, center);
 
-        void updateLocation(Vector<Point2f> joints)
-        {
-
-            int minDistance = 999999;
-            int index = -1;
-
-            for(int i = 0; i < joints.size(); i++)
+            if (distance < minDistance)
             {
-                Point2f point = joints[i];
-                int distance = dist(point, center);
-
-                if(distance < minDistance && distance < DISTANCE_THESHOLD)
-                {
-                    minDistance = distance;
-                    index = i;
-                }
-            }
-
-            if(index != -1)
-            {
-                center = joints[index];
+                minDistance = distance;
+                index = i;
             }
         }
 
-        Point2f getLocation()
+        if (index != -1)
         {
-            return center;
+            center = (*joints)[index];
         }
+    }
 
-        void setConnection(Joint* joint)
-        {
-            connection =  joint;
-        }
+    Point2f getLocation()
+    {
+        return center;
+    }
 
-        Joint * getConnection()
-        {
-            return connection;
-        }
+    void setConnection(Joint *joint)
+    {
+        connection = joint;
+    }
+
+    Joint *getConnection()
+    {
+        return connection;
+    }
 
 };
 
@@ -72,5 +73,5 @@ inline int dist(Point2f point1, Point2f point2)
     int dx = point2.x - point1.x;
     int dy = point2.y - point1.y;
 
-    return (dx*dx + dy*dy);
+    return (dx * dx + dy * dy);
 }

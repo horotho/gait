@@ -14,7 +14,7 @@ int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 static const String jointNames[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber = 0;
 
-Vector<Joint> joints;
+vector<Joint> joints;
 
 void callback(int event, int x, int y, int flags, void *userdata)
 {
@@ -23,17 +23,19 @@ void callback(int event, int x, int y, int flags, void *userdata)
     {
         for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
         {
-            printf("Point: (%d, %d) \n", it->x, it->y);
-            if (it->contains(Point(x, y))) 
+//            printf("Point: (%d, %d) \n", it->x, it->y);
+            if (it->contains(Point(x, y)))
             {
-                printf("Clicked inside an object. \n");
+//                printf("Clicked inside an object. \n");
 
 
                 if (jointNumber <= jointNames->size())
                 {
-                    Point2f center = Point2f(it->x + it->width/2, it->y + it->height/2);
+                    Point2f center = Point2f(it->x + it->width / 2, it->y + it->height / 2);
                     Joint newJoint = Joint(jointNames[jointNumber], center);
                     joints.push_back(newJoint);
+
+                    printf("Joint %s added with count %d,", jointNames[jointNumber].c_str(), jointNumber);
 
                     jointNumber++;
                     displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
@@ -79,7 +81,7 @@ int main(int argc, char **argv)
 #endif
 
     // Open the input
-    VideoCapture input(0);
+    VideoCapture input(1);
     if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
@@ -106,8 +108,9 @@ int main(int argc, char **argv)
     Mat frame, range, cont, hsv, output, canny;
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
-    vector<Point2f> mc;
+    vector<Point2f> mc, tp(100);
     vector<Rect> objects;
+    setMouseCallback(windowName, callback, &objects);
 
     while (1)
     {
@@ -125,7 +128,7 @@ int main(int argc, char **argv)
         inRange(hsv, Scalar(LOW_H, LOW_S, LOW_V), Scalar(HIGH_H, HIGH_S, HIGH_V), range);
 #endif
 
-        medianBlur(range, range, 9);
+        medianBlur(range, range, 15);
         Canny(range, canny, 50, 100, 3, true);
         canny.copyTo(cont);
 
@@ -145,17 +148,36 @@ int main(int argc, char **argv)
         for (int i = 0; i < ct; i++)
         {
             m = moments(contours[i], false);
-            mc[i] = Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00));
-            obj = Rect((int) mc[i].x - OBJECT_SIZE / 2, (int) mc[i].y - OBJECT_SIZE / 2, OBJECT_SIZE, OBJECT_SIZE);
-            rectangle(output, obj, Scalar(0, 0, 255), 2);
-            circle(output, mc[i], 2, Scalar(255, 255, 255));
+            mc.push_back(Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00)));
 
+            obj = Rect((int) mc[i].x - OBJECT_SIZE / 2, (int) mc[i].y - OBJECT_SIZE / 2, OBJECT_SIZE, OBJECT_SIZE);
+            rectangle(output, obj, Scalar(255, 255, 255), 2);
             objects.push_back(obj);
         }
 
-        setMouseCallback(windowName, callback, &objects);
+        for (vector<Joint>::iterator it = joints.begin(); it != joints.end(); ++it)
+        {
+            it->updateLocation(&mc);
+            circle(output, it->getLocation(), 20, Scalar(0, 0, 255), -1);
+        }
 
+        /*
+        tp.erase(tp.begin(), tp.begin() + tp.size()/8);
+        tp.shrink_to_fit();
+
+        for (int i = 0; i < tp.size() - 1; i++)
+        {
+            line(output, tp[i], tp[i + 1], Scalar(0, 0, 255), 1);
+        }
+         */
+
+#ifdef HSV_CAL
+        imshow(windowName, canny);
+#else
         imshow(windowName, output);
+#endif
+
+        frameCount++;
 
         //vout.write(output);
 

@@ -24,12 +24,12 @@ using namespace std;
 //#define HSV_CAL
 //#define SHITTY_CAMERA
 
-#ifdef SHITTY_CAMERA
-#define LOW_H 30
-#define LOW_S 36
-#define LOW_V 54
-#define HIGH_H 94
-#define HIGH_S 167
+#ifndef SHITTY_CAMERA
+#define LOW_H 56
+#define LOW_S 82
+#define LOW_V 49
+#define HIGH_H 86
+#define HIGH_S 146
 #define HIGH_V 255
 #else
 #define LOW_H 33
