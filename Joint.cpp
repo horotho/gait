@@ -4,7 +4,7 @@
 
 #include"gait.h"
 
-const int DISTANCE_THESHOLD = 500;
+const int DISTANCE_THESHOLD = 1000;
 
 inline int dist(Point2f, Point2f);
 
@@ -26,18 +26,18 @@ public:
         center = initialLocation;
     }
 
-    void updateLocation(vector<Point2f> *joints)
+    void updateLocation(vector<Point2f> *points)
     {
 
         int minDistance = 999999;
         int index = -1;
 
-        for (int i = 0; i < joints->size(); i++)
+        for (int i = 0; i < points->size(); i++)
         {
-            Point2f point = (*joints)[i];
+            Point2f point = (*points)[i];
             int distance = dist(point, center);
 
-            if (distance < minDistance)
+            if (distance < minDistance && distance < DISTANCE_THESHOLD)
             {
                 minDistance = distance;
                 index = i;
@@ -46,8 +46,16 @@ public:
 
         if (index != -1)
         {
-            center = (*joints)[index];
+            center = (*points)[index];
+            points->erase(points->begin() + index);
         }
+        /*
+        else
+        {
+            printf("Could not update %s joint \n", name.c_str());
+            printf("Located at X:%f, Y:%f", center.x, center.y);
+        }
+         */
     }
 
     Point2f getLocation()
@@ -63,6 +71,11 @@ public:
     Joint *getConnection()
     {
         return connection;
+    }
+
+    String getname()
+    {
+        return name;
     }
 
 };

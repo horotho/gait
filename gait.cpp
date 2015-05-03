@@ -1,5 +1,6 @@
 #include "gait.h"
 #include "Joint.cpp"
+#include <memory>
 
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
@@ -8,14 +9,16 @@ const char *windowName = "Gait Test";
 int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 #endif
 
-static const String jointNames[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
-int jointNumber = 0;
-vector<Joint> joints;
+const vector<String> jointNames {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
+int jointNumber;
+vector<shared_ptr<Joint>> joints;
 
 int main(int argc, char **argv)
 {
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
     setMouseCallback(windowName, callback, NULL);
+
+    jointNumber = 0;
     displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
 
 #ifdef HSV_CAL
@@ -28,7 +31,7 @@ int main(int argc, char **argv)
 #endif
 
     // Open the input
-    VideoCapture input(1);
+    VideoCapture input(0);
     if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
@@ -108,10 +111,19 @@ int main(int argc, char **argv)
             objects.push_back(obj);
         }
 
-        for (vector<Joint>::iterator it = joints.begin(); it != joints.end(); ++it)
+        for (vector<shared_ptr<Joint>>::iterator it = joints.begin(); it != joints.end(); ++it)
         {
-            it->updateLocation(&mc);
-            circle(output, it->getLocation(), 20, Scalar(0, 0, 255), -1);
+            shared_ptr<Joint> joint = (*it);
+
+            joint->updateLocation(&mc);
+            circle(output, joint->getLocation(), 20, Scalar(0, 0, 255), -1);
+
+            Joint* connection = joint->getConnection();
+
+            if(connection != NULL)
+            {
+                line(output, joint->getLocation(), joint->getConnection()->getLocation(), Scalar(255, 255, 255), 5, 4, 0);
+            }
         }
 
 
@@ -145,27 +157,32 @@ void callback(int event, int x, int y, int flags, void *userdata)
     {
         for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
         {
-//            printf("Point: (%d, %d) \n", it->x, it->y);
+//           printf("Point: (%d, %d) \n", it->x, it->y);
             if (it->contains(Point(x, y)))
             {
-//                printf("Clicked inside an object. \n");
+                printf("Clicked inside an object. \n");
 
 
-                if (jointNumber <= jointNames->size())
+                if (jointNumber < jointNames.size())
                 {
                     Point2f center = Point2f(it->x + it->width / 2, it->y + it->height / 2);
-                    Joint newJoint = Joint(jointNames[jointNumber], center);
-                    joints.push_back(newJoint);
+                    Joint* newJoint = new Joint(jointNames[jointNumber], center);
 
-                    printf("Joint %s added with count %d,", jointNames[jointNumber].c_str(), jointNumber);
+                    auto ptr = shared_ptr<Joint>(newJoint);
+                    joints.push_back(ptr);
+
+                    if(jointNumber != 0)
+                    {
+                        (*joints[jointNumber - 1]).setConnection(newJoint);
+                    }
 
                     jointNumber++;
-                    displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
-                    break;
-                }
-                else
-                {
-                    displayOverlay(windowName, "Joints Selected", 3000);
+                    if(jointNumber < jointNames.size())
+                        displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
+                    else
+                        displayOverlay(windowName, "Joints Selected", 3000);
+
+
                     break;
                 }
             }
