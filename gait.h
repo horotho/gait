@@ -38,6 +38,7 @@ using namespace std;
 #endif
 
 void callback(int event, int x, int y, int flags, void *userdata);
+float cosAngle(Point2f hip, Point2f knee, Point2f ankle);
 
 
 #endif //GAIT_GAIT_H

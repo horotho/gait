@@ -1,6 +1,7 @@
 #include "gait.h"
 #include "Joint.cpp"
 #include <memory>
+#include  <cmath>
 
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
@@ -126,6 +127,15 @@ int main(int argc, char **argv)
             }
         }
 
+        if(joints.size() >= jointNames.size())
+        {
+            Point2f hip = (*joints[0]).getLocation();
+            Point2f knee = (*joints[2]).getLocation();
+            Point2f ankle = (*joints[4]).getLocation();
+            float kneeAngle = cosAngle(hip, knee, ankle);
+
+            putText(output, to_string(kneeAngle), knee, FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 255), 2, 8, false);
+        }
 
 #ifdef HSV_CAL
         imshow(windowName, canny);
@@ -188,4 +198,15 @@ void callback(int event, int x, int y, int flags, void *userdata)
             }
         }
     }
+}
+
+float cosAngle(Point2f hip, Point2f knee, Point2f ankle)
+{
+    float a = norm(Mat(knee), Mat(ankle));
+    float b = norm(Mat(hip), Mat(ankle));
+    float c = norm(Mat(hip), Mat(knee));
+
+    float cosB = ((a*a) - (b*b) + (c*c)) / (2*a*c);
+
+    return acos(cosB);
 }
