@@ -14,8 +14,7 @@ private:
     String name;
     Joint *connection;
     Point2f center;
-
-
+    
 public:
     Joint()
     { };

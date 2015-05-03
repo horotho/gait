@@ -1,9 +1,6 @@
 #include "gait.h"
 #include "Joint.cpp"
 
-#define ESC_KEY (27)
-#define dist(x, y)  ((x) * (x) + (y) * (y))
-
 const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
 
@@ -13,56 +10,7 @@ int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 
 static const String jointNames[] = {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber = 0;
-
 vector<Joint> joints;
-
-void callback(int event, int x, int y, int flags, void *userdata)
-{
-    vector<Rect> *objects = reinterpret_cast< vector<Rect> * >(userdata);
-    if (event == EVENT_LBUTTONDOWN)
-    {
-        for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
-        {
-//            printf("Point: (%d, %d) \n", it->x, it->y);
-            if (it->contains(Point(x, y)))
-            {
-//                printf("Clicked inside an object. \n");
-
-
-                if (jointNumber <= jointNames->size())
-                {
-                    Point2f center = Point2f(it->x + it->width / 2, it->y + it->height / 2);
-                    Joint newJoint = Joint(jointNames[jointNumber], center);
-                    joints.push_back(newJoint);
-
-                    printf("Joint %s added with count %d,", jointNames[jointNumber].c_str(), jointNumber);
-
-                    jointNumber++;
-                    displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
-                    break;
-                }
-                else
-                {
-                    displayOverlay(windowName, "Joints Selected", 3000);
-                    break;
-                }
-            }
-        }
-    }
-    else if (event == EVENT_RBUTTONDOWN)
-    {
-//        cout << "Right button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
-    }
-    else if (event == EVENT_MBUTTONDOWN)
-    {
-//        cout << "Middle button of the mouse is clicked - position (" << x << ", " << y << ")" << endl;
-    }
-    else if (event == EVENT_MOUSEMOVE)
-    {
-//        cout << "Mouse move over the window - position (" << x << ", " << y << ")" << endl;
-
-    }
-}
 
 int main(int argc, char **argv)
 {
@@ -77,7 +25,6 @@ int main(int argc, char **argv)
     createTrackbar("S High", windowName, &hS, 255);
     createTrackbar("V Low", windowName, &lV, 255);
     createTrackbar("V High", windowName, &hV, 255);
-
 #endif
 
     // Open the input
@@ -108,7 +55,7 @@ int main(int argc, char **argv)
     Mat frame, range, cont, hsv, output, canny;
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
-    vector<Point2f> mc, tp(100);
+    vector<Point2f> mc;
     vector<Rect> objects;
     setMouseCallback(windowName, callback, &objects);
 
@@ -128,7 +75,10 @@ int main(int argc, char **argv)
         inRange(hsv, Scalar(LOW_H, LOW_S, LOW_V), Scalar(HIGH_H, HIGH_S, HIGH_V), range);
 #endif
 
+        // Apply blur to get rid of noise
         medianBlur(range, range, 15);
+
+        // Use canny to find the edges of objects
         Canny(range, canny, 50, 100, 3, true);
         canny.copyTo(cont);
 
@@ -137,6 +87,7 @@ int main(int argc, char **argv)
         mc.clear();
         objects.clear();
 
+        // Find the contours of the objects
         findContours(cont, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_TC89_L1);
         unsigned long ct = contours.size();
 
@@ -145,6 +96,8 @@ int main(int argc, char **argv)
 
         Moments m;
         Rect obj;
+
+        // Find the center of each of the contours
         for (int i = 0; i < ct; i++)
         {
             m = moments(contours[i], false);
@@ -161,15 +114,6 @@ int main(int argc, char **argv)
             circle(output, it->getLocation(), 20, Scalar(0, 0, 255), -1);
         }
 
-        /*
-        tp.erase(tp.begin(), tp.begin() + tp.size()/8);
-        tp.shrink_to_fit();
-
-        for (int i = 0; i < tp.size() - 1; i++)
-        {
-            line(output, tp[i], tp[i + 1], Scalar(0, 0, 255), 1);
-        }
-         */
 
 #ifdef HSV_CAL
         imshow(windowName, canny);
@@ -190,4 +134,41 @@ int main(int argc, char **argv)
     output.release();
 
     return 0;
+}
+
+void callback(int event, int x, int y, int flags, void *userdata)
+{
+    // Cast the vector back from a void pointer
+    vector<Rect> *objects = reinterpret_cast< vector<Rect> * >(userdata);
+
+    if (event == EVENT_LBUTTONDOWN)
+    {
+        for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
+        {
+//            printf("Point: (%d, %d) \n", it->x, it->y);
+            if (it->contains(Point(x, y)))
+            {
+//                printf("Clicked inside an object. \n");
+
+
+                if (jointNumber <= jointNames->size())
+                {
+                    Point2f center = Point2f(it->x + it->width / 2, it->y + it->height / 2);
+                    Joint newJoint = Joint(jointNames[jointNumber], center);
+                    joints.push_back(newJoint);
+
+                    printf("Joint %s added with count %d,", jointNames[jointNumber].c_str(), jointNumber);
+
+                    jointNumber++;
+                    displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
+                    break;
+                }
+                else
+                {
+                    displayOverlay(windowName, "Joints Selected", 3000);
+                    break;
+                }
+            }
+        }
+    }
 }

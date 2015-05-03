@@ -4,8 +4,11 @@
 
 #include <stdio.h>
 #include <iostream>
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/video/background_segm.hpp>
+#include <opencv2/video/video.hpp>
 
 using namespace cv;
 using namespace std;
@@ -13,13 +16,7 @@ using namespace std;
 #ifndef GAIT_GAIT_H
 #define GAIT_GAIT_H
 
-#include <stdio.h>
-#include <iostream>
-
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
-
-#define ESC_KEY (27)
+#define ESC_KEY     27
 #define OBJECT_SIZE 25
 //#define HSV_CAL
 //#define SHITTY_CAMERA
@@ -39,6 +36,8 @@ using namespace std;
 #define HIGH_S 255
 #define HIGH_V 255
 #endif
+
+void callback(int event, int x, int y, int flags, void *userdata);
 
 
 #endif //GAIT_GAIT_H
