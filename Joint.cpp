@@ -37,7 +37,7 @@ public:
             Point2f point = (*points)[i];
             int distance = dist(point, center);
 
-            if (distance < minDistance && distance < DISTANCE_THESHOLD)
+            if (distance < minDistance)
             {
                 minDistance = distance;
                 index = i;

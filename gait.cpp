@@ -10,7 +10,7 @@ const char *windowName = "Gait Test";
 int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 #endif
 
-const vector<String> jointNames {"Hip", "Thigh", "Knee", "Shin", "Ankle"};
+const vector<String> jointNames{"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber;
 vector<shared_ptr<Joint>> joints;
 
@@ -32,7 +32,7 @@ int main(int argc, char **argv)
 #endif
 
     // Open the input
-    VideoCapture input(0);
+    VideoCapture input(1);
     if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     int height = (int) input.get(CV_CAP_PROP_FRAME_HEIGHT);
     int codec = CV_FOURCC('M', 'P', 'E', 'G');
 
-    int frameCount = 0;
+    unsigned int frameCount = 0;
     //int fourcc = input.get(CV_CAP_PROP_FOURCC);
     //double fps = input.get(CV_CAP_PROP_FPS);
 
@@ -62,13 +62,15 @@ int main(int argc, char **argv)
     vector<Point2f> mc;
     vector<Rect> objects;
     setMouseCallback(windowName, callback, &objects);
+    char buffer[50];
 
     while (1)
     {
         if (!input.read(frame)) break;
 
         frame.copyTo(output);
-        //frameCount++;
+
+        frameCount++;
 
         // Convert to hsv and threshold with the given values
         cvtColor(frame, hsv, CV_BGR2HSV);
@@ -104,11 +106,10 @@ int main(int argc, char **argv)
         // Find the center of each of the contours
         for (int i = 0; i < ct; i++)
         {
-            m = moments(contours[i], false);
+            m = moments(contours[i], true);
             mc.push_back(Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00)));
-
-            obj = Rect((int) mc[i].x - OBJECT_SIZE / 2, (int) mc[i].y - OBJECT_SIZE / 2, OBJECT_SIZE, OBJECT_SIZE);
-            rectangle(output, obj, Scalar(255, 255, 255), 2);
+            obj = boundingRect(contours[i]);
+            rectangle(output, obj, Scalar(0, 0, 255), 2);
             objects.push_back(obj);
         }
 
@@ -117,24 +118,26 @@ int main(int argc, char **argv)
             shared_ptr<Joint> joint = (*it);
 
             joint->updateLocation(&mc);
-            circle(output, joint->getLocation(), 20, Scalar(0, 0, 255), -1);
+            circle(output, joint->getLocation(), 8, Scalar(0, 0, 255), -1);
 
-            Joint* connection = joint->getConnection();
+            Joint *connection = joint->getConnection();
 
-            if(connection != NULL)
+            if (connection != NULL)
             {
                 line(output, joint->getLocation(), joint->getConnection()->getLocation(), Scalar(255, 255, 255), 5, 4, 0);
             }
         }
 
-        if(joints.size() >= jointNames.size())
+        if (joints.size() >= jointNames.size())
         {
             Point2f hip = (*joints[0]).getLocation();
             Point2f knee = (*joints[2]).getLocation();
             Point2f ankle = (*joints[4]).getLocation();
             float kneeAngle = cosAngle(hip, knee, ankle);
 
-            putText(output, to_string(kneeAngle), knee, FONT_HERSHEY_PLAIN, 1, Scalar(0, 0, 255), 2, 8, false);
+            sprintf(buffer, "%2.2f deg", kneeAngle);
+
+            putText(output, buffer, knee, FONT_HERSHEY_PLAIN, 1, Scalar(255, 255, 255), 2, 8, false);
         }
 
 #ifdef HSV_CAL
@@ -167,27 +170,25 @@ void callback(int event, int x, int y, int flags, void *userdata)
     {
         for (vector<Rect>::iterator it = objects->begin(); it != objects->end(); ++it)
         {
-//           printf("Point: (%d, %d) \n", it->x, it->y);
             if (it->contains(Point(x, y)))
             {
                 printf("Clicked inside an object. \n");
 
-
                 if (jointNumber < jointNames.size())
                 {
                     Point2f center = Point2f(it->x + it->width / 2, it->y + it->height / 2);
-                    Joint* newJoint = new Joint(jointNames[jointNumber], center);
+                    Joint *newJoint = new Joint(jointNames[jointNumber], center);
 
                     auto ptr = shared_ptr<Joint>(newJoint);
                     joints.push_back(ptr);
 
-                    if(jointNumber != 0)
+                    if (jointNumber != 0)
                     {
                         (*joints[jointNumber - 1]).setConnection(newJoint);
                     }
 
                     jointNumber++;
-                    if(jointNumber < jointNames.size())
+                    if (jointNumber < jointNames.size())
                         displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
                     else
                         displayOverlay(windowName, "Joints Selected", 3000);
@@ -206,7 +207,7 @@ float cosAngle(Point2f hip, Point2f knee, Point2f ankle)
     float b = norm(Mat(hip), Mat(ankle));
     float c = norm(Mat(hip), Mat(knee));
 
-    float cosB = ((a*a) - (b*b) + (c*c)) / (2*a*c);
+    float cosB = ((a * a) - (b * b) + (c * c)) / (2 * a * c);
 
-    return acos(cosB);
+    return acos(cosB) * (180 / PI);
 }
