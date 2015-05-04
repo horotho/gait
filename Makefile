@@ -3,13 +3,13 @@ LIB_DIRS =
 CC=g++
 
 CDEFS=
-CFLAGS= -O0 -g $(INCLUDE_DIRS) $(CDEFS)
+CFLAGS= -O0 -g -std=c++11 $(INCLUDE_DIRS) $(CDEFS)
 LIBS= -lrt
 CPPLIBS= -L/usr/lib -lopencv_core -lopencv_flann -lopencv_video
 
-HFILES=
+HFILES=gait
 CFILES=
-CPPFILES=gait
+CPPFILES=gait Joint
 
 SRCS= ${HFILES} ${CFILES}
 CPPOBJS= ${CPPFILES:.cpp=.o}
