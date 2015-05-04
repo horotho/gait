@@ -1,14 +1,17 @@
 #include "gait.h"
 #include "Joint.cpp"
 #include <memory>
+#include  <cmath>
 #include <fstream>
 
 const char *windowName = "Gait Test";
 
+// ifdef for Displaying the HSV Sliders
 #ifdef HSV_CAL
 int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 #endif
 
+// Objects for holding the joints, names, and an index
 const vector<String> jointNames{"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber;
 float kneeAngle;
@@ -16,13 +19,16 @@ vector<shared_ptr<Joint>> joints;
 
 int main(int argc, char **argv)
 {
+    // Create a window and set a mounse callback
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
     setMouseCallback(windowName, callback, NULL);
 
-    unsigned int frameCount = 0;
+    // Displays the initial joint selection
     jointNumber = 0;
     displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
 
+
+    // ifdef for Displaying the HSV Sliders
 #ifdef HSV_CAL
     createTrackbar("H Low", windowName, &lH, 179);
     createTrackbar("H High", windowName, &hH, 179);
@@ -33,26 +39,34 @@ int main(int argc, char **argv)
 #endif
 
     // Open the input
-    VideoCapture vin(1);
-    if (!vin.isOpened())
+    VideoCapture input(0);
+    if (!input.isOpened())
     {
         cout << "Error opening input capture." << endl;
         return 0;
     }
 
-    int width = (int) vin.get(CV_CAP_PROP_FRAME_WIDTH);
-    int height = (int) vin.get(CV_CAP_PROP_FRAME_HEIGHT);
+    // Sets the height and width of the video and the encoding codec
+    int width = (int) input.get(CV_CAP_PROP_FRAME_WIDTH);
+    int height = (int) input.get(CV_CAP_PROP_FRAME_HEIGHT);;
     int codec = CV_FOURCC('M', 'P', 'E', 'G');
+
+    unsigned int frameCount = 0;
+    //int fourcc = input.get(CV_CAP_PROP_FOURCC);
+    //double fps = input.get(CV_CAP_PROP_FPS);
 
     // Setup output video
     VideoWriter vout("/tmp/gait6.mpeg", codec, 30, Size(width, height), true);
 
+    // Checks the video stream is open
     if (!vout.isOpened())
     {
         cout << "Error opening output capture." << endl;
         return 0;
     }
 
+
+    // Creates the output video
     ofstream fs;
     fs.open("/tmp/joint6.txt");
 
@@ -62,6 +76,7 @@ int main(int argc, char **argv)
         return 0;
     }
 
+    // Sets variables for holding frames, countours, and object centers
     Mat frame, range, cont, hsv, output, tmp;
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
@@ -72,8 +87,10 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        if (!vin.read(frame)) break;
+        if (!input.read(frame)) break;
+
         frame.copyTo(output);
+        frameCount++;
 
         if (jointNumber == jointNames.size())
         {
@@ -103,6 +120,7 @@ int main(int argc, char **argv)
         range.copyTo(cont);
         range.copyTo(tmp);
 
+        // Clears the values
         contours.clear();
         hierarchy.clear();
         mc.clear();
@@ -112,6 +130,7 @@ int main(int argc, char **argv)
         findContours(cont, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
         unsigned long ct = contours.size();
 
+        // Allocates size of the vectors
         mc.reserve(ct);
         objects.reserve(ct);
 
@@ -131,9 +150,12 @@ int main(int argc, char **argv)
             objects.push_back(obj);
         }
 
+        // Updates joint locations
         for (vector<shared_ptr<Joint>>::iterator it = joints.begin(); it != joints.end(); ++it)
         {
             shared_ptr<Joint> joint = (*it);
+
+            // Draws cicle at joint center
             joint->updateLocation(&mc);
         }
 
@@ -146,13 +168,14 @@ int main(int argc, char **argv)
 
             Joint *connection = joint->getConnection();
 
+            // Draws lines between joints
             if (connection != NULL)
             {
                 line(output, joint->getLocation(), joint->getConnection()->getLocation(), Scalar(255, 255, 255), 5, 4, 0);
             }
         }
 
-
+        // Calculates the knee angle and puts it on the screen
         if (joints.size() >= jointNames.size())
         {
             Point2f hip = (*joints[0]).getLocation();
@@ -171,12 +194,14 @@ int main(int argc, char **argv)
         vout.write(output);
 #endif
 
+        // Looks for the esc key
         char c = (char) cvWaitKey(1);
         if (c == ESC_KEY) break;
+
     }
 
     printf("Performing cleanup. \n");
-    vin.release();
+    input.release();
     vout.release();
     fs.close();
 
