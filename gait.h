@@ -29,10 +29,10 @@ using namespace std;
 #define HIGH_S 180
 #define HIGH_V 255
 #else
-#define LOW_H 36
+#define LOW_H 45
 #define LOW_S 45
 #define LOW_V 59
-#define HIGH_H 86
+#define HIGH_H 80
 #define HIGH_S 157
 #define HIGH_V 255
 #endif

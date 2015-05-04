@@ -1,9 +1,8 @@
 #include "gait.h"
 #include "Joint.cpp"
 #include <memory>
-#include  <cmath>
+#include <fstream>
 
-const char *filename = "gait.mpeg";
 const char *windowName = "Gait Test";
 
 #ifdef HSV_CAL
@@ -12,6 +11,7 @@ int lH = LOW_H, lS = LOW_S, lV = LOW_V, hH = HIGH_H, hS = HIGH_S, hV = HIGH_V;
 
 const vector<String> jointNames{"Hip", "Thigh", "Knee", "Shin", "Ankle"};
 int jointNumber;
+float kneeAngle;
 vector<shared_ptr<Joint>> joints;
 
 int main(int argc, char **argv)
@@ -19,6 +19,7 @@ int main(int argc, char **argv)
     namedWindow(windowName, CV_WINDOW_AUTOSIZE);
     setMouseCallback(windowName, callback, NULL);
 
+    unsigned int frameCount = 0;
     jointNumber = 0;
     displayOverlay(windowName, "Please select the " + jointNames[jointNumber] + " Marker", 0);
 
@@ -32,23 +33,19 @@ int main(int argc, char **argv)
 #endif
 
     // Open the input
-    VideoCapture input(1);
-    if (!input.isOpened())
+    VideoCapture vin(1);
+    if (!vin.isOpened())
     {
         cout << "Error opening input capture." << endl;
         return 0;
     }
 
-    int width = (int) input.get(CV_CAP_PROP_FRAME_WIDTH);
-    int height = (int) input.get(CV_CAP_PROP_FRAME_HEIGHT);
+    int width = (int) vin.get(CV_CAP_PROP_FRAME_WIDTH);
+    int height = (int) vin.get(CV_CAP_PROP_FRAME_HEIGHT);
     int codec = CV_FOURCC('M', 'P', 'E', 'G');
 
-    unsigned int frameCount = 0;
-    //int fourcc = input.get(CV_CAP_PROP_FOURCC);
-    //double fps = input.get(CV_CAP_PROP_FPS);
-
     // Setup output video
-    VideoWriter vout(filename, codec, 30, Size(width, height), true);
+    VideoWriter vout("/tmp/gait6.mpeg", codec, 30, Size(width, height), true);
 
     if (!vout.isOpened())
     {
@@ -56,7 +53,16 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    Mat frame, range, cont, hsv, output, canny;
+    ofstream fs;
+    fs.open("/tmp/joint6.txt");
+
+    if (!fs.is_open())
+    {
+        cout << "Error opening joint save file." << endl;
+        return 0;
+    }
+
+    Mat frame, range, cont, hsv, output, tmp;
     vector<vector<Point> > contours;
     vector<Vec4i> hierarchy;
     vector<Point2f> mc;
@@ -66,11 +72,22 @@ int main(int argc, char **argv)
 
     while (1)
     {
-        if (!input.read(frame)) break;
-
+        if (!vin.read(frame)) break;
         frame.copyTo(output);
 
-        frameCount++;
+        if (jointNumber == jointNames.size())
+        {
+            for (int i = 0; i < joints.size(); i++)
+            {
+                Joint joint = *joints[i];
+                Point p = joint.getLocation();
+                fs << joint.getName() << "," << p.x << "," << p.y << endl;
+            }
+
+            fs << kneeAngle << endl;
+
+            frameCount++;
+        }
 
         // Convert to hsv and threshold with the given values
         cvtColor(frame, hsv, CV_BGR2HSV);
@@ -83,10 +100,8 @@ int main(int argc, char **argv)
 
         // Apply blur to get rid of noise
         medianBlur(range, range, 15);
-
-        // Use canny to find the edges of objects
-        Canny(range, canny, 50, 100, 3, true);
-        canny.copyTo(cont);
+        range.copyTo(cont);
+        range.copyTo(tmp);
 
         contours.clear();
         hierarchy.clear();
@@ -94,7 +109,7 @@ int main(int argc, char **argv)
         objects.clear();
 
         // Find the contours of the objects
-        findContours(cont, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_TC89_L1);
+        findContours(cont, contours, hierarchy, CV_RETR_CCOMP, CV_CHAIN_APPROX_SIMPLE);
         unsigned long ct = contours.size();
 
         mc.reserve(ct);
@@ -108,6 +123,9 @@ int main(int argc, char **argv)
         {
             m = moments(contours[i], true);
             mc.push_back(Point2f((float) (m.m10 / m.m00), (float) (m.m01 / m.m00)));
+
+            circle(tmp, mc[i], 5, Scalar(0, 0, 255), -1);
+
             obj = boundingRect(contours[i]);
             rectangle(output, obj, Scalar(0, 0, 255), 2);
             objects.push_back(obj);
@@ -116,8 +134,14 @@ int main(int argc, char **argv)
         for (vector<shared_ptr<Joint>>::iterator it = joints.begin(); it != joints.end(); ++it)
         {
             shared_ptr<Joint> joint = (*it);
-
             joint->updateLocation(&mc);
+        }
+
+
+        for (vector<shared_ptr<Joint>>::iterator it = joints.begin(); it != joints.end(); ++it)
+        {
+            shared_ptr<Joint> joint = (*it);
+
             circle(output, joint->getLocation(), 8, Scalar(0, 0, 255), -1);
 
             Joint *connection = joint->getConnection();
@@ -128,35 +152,33 @@ int main(int argc, char **argv)
             }
         }
 
+
         if (joints.size() >= jointNames.size())
         {
             Point2f hip = (*joints[0]).getLocation();
             Point2f knee = (*joints[2]).getLocation();
             Point2f ankle = (*joints[4]).getLocation();
-            float kneeAngle = cosAngle(hip, knee, ankle);
+            kneeAngle = cosAngle(hip, knee, ankle);
 
             sprintf(buffer, "%2.2f deg", kneeAngle);
-
-            putText(output, buffer, knee, FONT_HERSHEY_PLAIN, 1, Scalar(255, 255, 255), 2, 8, false);
+            putText(output, buffer, Point2f(knee.x + 15, knee.y), FONT_HERSHEY_PLAIN, 1, Scalar(255, 255, 255), 2, 8, false);
         }
 
 #ifdef HSV_CAL
-        imshow(windowName, canny);
+        imshow(windowName, range);
 #else
         imshow(windowName, output);
+        vout.write(output);
 #endif
-
-        frameCount++;
-
-        //vout.write(output);
 
         char c = (char) cvWaitKey(1);
         if (c == ESC_KEY) break;
-
     }
 
-    input.release();
-    output.release();
+    printf("Performing cleanup. \n");
+    vin.release();
+    vout.release();
+    fs.close();
 
     return 0;
 }

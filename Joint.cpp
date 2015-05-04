@@ -4,8 +4,6 @@
 
 #include"gait.h"
 
-const int DISTANCE_THESHOLD = 1000;
-
 inline int dist(Point2f, Point2f);
 
 class Joint
@@ -14,7 +12,7 @@ private:
     String name;
     Joint *connection;
     Point2f center;
-    
+
 public:
     Joint()
     { };
@@ -43,6 +41,7 @@ public:
                 index = i;
             }
         }
+
 
         if (index != -1)
         {
@@ -73,7 +72,7 @@ public:
         return connection;
     }
 
-    String getname()
+    String getName()
     {
         return name;
     }
